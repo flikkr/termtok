@@ -9,8 +9,20 @@ a simple vertical slice during a scroll transition (see ``feed.py``).
 
 from __future__ import annotations
 
+import os
+
+# Silence libav/ffmpeg's H.264 decoder chatter ("co located POCs unavailable",
+# "error while decoding MB", …) which it prints to stderr and would corrupt the
+# TUI. Must be set before cv2 first initialises its ffmpeg backend.
+os.environ.setdefault("OPENCV_FFMPEG_LOGLEVEL", "-8")  # AV_LOG_QUIET
+
 import cv2
 import numpy as np
+
+try:
+    cv2.setLogLevel(0)  # OpenCV's own logger -> SILENT
+except Exception:  # noqa: BLE001 - older cv2 may lack it
+    pass
 
 
 class VideoReader:

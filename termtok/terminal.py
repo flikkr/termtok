@@ -23,10 +23,18 @@ class Terminal:
     def __init__(self) -> None:
         self._fd = sys.stdin.fileno()
         self._saved: list | None = None
+        self._saved_err: int | None = None
+        self._devnull: int | None = None
 
     def __enter__(self) -> "Terminal":
         self._saved = termios.tcgetattr(self._fd)
         tty.setraw(self._fd)
+        # Route native-library stderr (e.g. ffmpeg/libav decoder warnings) to
+        # /dev/null for the duration of the session so it can't corrupt the
+        # screen. Restored on exit, so crash tracebacks still surface.
+        self._saved_err = os.dup(2)
+        self._devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(self._devnull, 2)
         sys.stdout.write(_ENTER)
         sys.stdout.flush()
         return self
@@ -36,6 +44,10 @@ class Terminal:
         sys.stdout.flush()
         if self._saved is not None:
             termios.tcsetattr(self._fd, termios.TCSADRAIN, self._saved)
+        if self._saved_err is not None:
+            os.dup2(self._saved_err, 2)
+            os.close(self._devnull)
+            os.close(self._saved_err)
 
     def write(self, data: str) -> None:
         sys.stdout.write(data)

@@ -50,6 +50,11 @@ class ScrollPhysics:
         self._vel = 0.0
         self._lock = threading.Lock()
 
+    def set_count(self, count: int) -> None:
+        """Update the number of videos (the feed grows during streaming)."""
+        with self._lock:
+            self.count = max(1, count)
+
     def kick(self, direction: int) -> None:
         """Nudge the feed by one notch. +1 = next video, -1 = previous."""
         with self._lock:
