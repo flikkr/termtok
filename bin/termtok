@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# termtok launcher — runs the player from its project venv.
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$PROJECT_DIR/.venv/bin/python"
+if [[ ! -x "$PY" ]]; then
+  echo "termtok: missing venv at $PY (run: uv venv .venv && uv pip install numpy opencv-python-headless)" >&2
+  exit 1
+fi
+exec env PYTHONPATH="$PROJECT_DIR" "$PY" -m termtok "$@"

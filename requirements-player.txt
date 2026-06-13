@@ -1,0 +1,3 @@
+# Dependencies for the terminal player (separate from the TikTok fetcher).
+numpy
+opencv-python-headless
