@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="kazymirrabier/termtok"
+REPO="flikkr/termtok"
 BIN_DIR="/usr/local/bin"
 
 # Detect OS and arch

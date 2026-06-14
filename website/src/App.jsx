@@ -46,7 +46,7 @@ const FEATURES = [
   },
 ]
 
-const CURL_INSTALL = `curl -fsSL https://raw.githubusercontent.com/kazymirrabier/termtok/main/install.sh | sh`
+const CURL_INSTALL = `curl -fsSL https://raw.githubusercontent.com/flikkr/termtok/main/install.sh | sh`
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false)
@@ -100,7 +100,7 @@ export default function App() {
 
         <div className="flex flex-wrap gap-3 justify-center mb-16">
           <a
-            href="https://github.com/kazymirrabier/termtok"
+            href="https://github.com/flikkr/termtok"
             target="_blank"
             rel="noreferrer"
             className="px-5 py-2 bg-[#00ff41] text-black font-bold text-sm rounded hover:bg-[#00cc33] transition-colors"
@@ -166,8 +166,8 @@ export default function App() {
           <div>
             <p className="text-[#555] text-xs mb-2 uppercase tracking-widest">manual</p>
             <div className="space-y-3">
-              <CodeBlock copyText="git clone https://github.com/kazymirrabier/termtok && cd termtok && uv venv .venv && uv pip install --python .venv/bin/python -r requirements-player.txt">
-{`git clone https://github.com/kazymirrabier/termtok
+              <CodeBlock copyText="git clone https://github.com/flikkr/termtok && cd termtok && uv venv .venv && uv pip install --python .venv/bin/python -r requirements-player.txt">
+{`git clone https://github.com/flikkr/termtok
 cd termtok
 uv venv .venv
 uv pip install --python .venv/bin/python -r requirements-player.txt`}
@@ -223,12 +223,12 @@ brew install deno             # streaming support`}
         </div>
         <p className="text-[#222] text-xs">MIT license — use it, break it, don't blame us</p>
         <a
-          href="https://github.com/kazymirrabier/termtok"
+          href="https://github.com/flikkr/termtok"
           target="_blank"
           rel="noreferrer"
           className="text-[#333] hover:text-[#00ff41]/40 text-xs transition-colors"
         >
-          github.com/kazymirrabier/termtok
+          github.com/flikkr/termtok
         </a>
       </footer>
     </div>
