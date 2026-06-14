@@ -22,10 +22,11 @@ import logging
 import os
 import re
 import subprocess
-import sys
 import threading
 import urllib.parse
 from dataclasses import dataclass
+
+from . import tools
 
 log = logging.getLogger("termtok.fetcher")
 
@@ -220,7 +221,7 @@ class BaseFetcher:
         """Download ``url`` to ``out_path`` (an .mp4) with yt-dlp. Returns (rc, stderr)."""
         template = out_path[: -len(".mp4")] + ".%(ext)s"
         cmd = [
-            sys.executable, "-m", "yt_dlp",
+            *tools.ytdlp_cmd(),
             "--impersonate", "chrome",  # needs curl_cffi; harmless if unused
             # Lets yt-dlp fetch & run YouTube's JS "n-challenge" solver (needs a
             # JS runtime like deno/node). Without it many YouTube videos expose
@@ -234,7 +235,11 @@ class BaseFetcher:
         ]
         try:
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=self.DOWNLOAD_TIMEOUT
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self.DOWNLOAD_TIMEOUT,
+                env=tools.subprocess_env(),
             )
             return proc.returncode, proc.stderr
         except subprocess.TimeoutExpired:
@@ -481,14 +486,20 @@ class YouTubeFetcher(BaseFetcher):
         """Return (video descriptors, raw entry count) for playlist [start:end]."""
         sep = "\x1f"  # unit separator — safe vs titles containing tabs
         cmd = [
-            sys.executable, "-m", "yt_dlp",
+            *tools.ytdlp_cmd(),
             "--flat-playlist", "--no-warnings",
             "-I", f"{start}:{end}",
             "--print", f"%(ie_key)s{sep}%(id)s{sep}%(uploader)s{sep}%(title)s",
             self.source_url,
         ]
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=tools.subprocess_env(),
+            )
         except Exception as e:  # noqa: BLE001
             log.warning("youtube enumerate failed (%s..%s): %s", start, end, e)
             return [], 0

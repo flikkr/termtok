@@ -12,8 +12,9 @@ If ffplay isn't installed, audio is silently disabled (the player still runs).
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
+
+from . import tools
 
 log = logging.getLogger("termtok.audio")
 
@@ -23,7 +24,7 @@ class AudioController:
         self._volume = max(0, min(100, volume))
         self._muted = False
         self._proc: subprocess.Popen | None = None
-        self._ffplay = shutil.which("ffplay")
+        self._ffplay = tools.ffplay()
         if self._ffplay is None:
             log.warning("ffplay not found — audio disabled (install ffmpeg)")
 
