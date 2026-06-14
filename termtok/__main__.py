@@ -14,7 +14,6 @@ from .source import LocalFolderSource, Source, StreamSource
 log = logging.getLogger("termtok.main")
 
 _PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_DEFAULT_DIR = os.path.join(_PROJECT_DIR, ".videos")
 _DEFAULT_CACHE = os.path.join(_PROJECT_DIR, ".cache")
 
 
@@ -26,23 +25,36 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "folder",
         nargs="?",
-        default=_DEFAULT_DIR,
-        help="folder of local videos to play (default: ./.videos)",
+        default=None,
+        help="play a local folder of videos instead of streaming",
     )
 
+    parser.add_argument(
+        "-p",
+        "--platform",
+        choices=["youtube", "tiktok"],
+        default="youtube",
+        help="streaming platform (default: youtube). tiktok needs --ms-token.",
+    )
     feed = parser.add_mutually_exclusive_group()
-    # TikTok (needs ms_token + Playwright)
-    feed.add_argument("--trending", action="store_true", help="TikTok For-You feed")
-    feed.add_argument("--user", metavar="USERNAME", help="TikTok: a creator's videos")
-    feed.add_argument("--tag", metavar="HASHTAG", help="TikTok: a hashtag's videos")
-    feed.add_argument("--related", metavar="URL", help="TikTok: videos related to URL")
-    # YouTube Shorts (just needs yt-dlp — no token, no browser)
-    feed.add_argument("--yt-search", metavar="QUERY", help="YouTube Shorts search")
-    feed.add_argument("--yt-channel", metavar="NAME", help="a channel's YouTube Shorts")
-    feed.add_argument("--yt-url", metavar="URL", help="any YouTube channel/playlist URL")
+    feed.add_argument("--search", metavar="QUERY", help="search for videos (YouTube)")
+    feed.add_argument("--user", metavar="NAME", help="a creator's / channel's videos")
+    feed.add_argument("--tag", metavar="TAG", help="a hashtag's videos")
+    feed.add_argument(
+        "--url",
+        metavar="URL",
+        help="a YouTube channel/playlist URL, or a TikTok video URL (plays related)",
+    )
 
     parser.add_argument(
         "-n", "--count", type=int, default=None, help="local mode: cap how many videos"
+    )
+    parser.add_argument(
+        "--volume",
+        type=int,
+        default=70,
+        metavar="0-100",
+        help="audio volume (0 mutes; needs ffplay). default: 70",
     )
     parser.add_argument(
         "--cache-size",
@@ -83,19 +95,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"termtok: {e}", file=sys.stderr)
         return 1
 
-    Feed(source).run()
+    Feed(source, volume=args.volume).run()
     return 0
 
 
 def _build_source(args) -> Source:
     cache_bytes = int(max(1.0, args.cache_size) * 1024 * 1024)
 
-    if args.yt_search or args.yt_channel or args.yt_url:
-        return _youtube_source(args, cache_bytes)
-    mode, arg = _tiktok_mode(args)
-    if mode is not None:
-        return _tiktok_source(args, mode, arg, cache_bytes)
-    return _local_source(args)
+    # An explicit local folder bypasses streaming entirely.
+    if args.folder is not None:
+        return _local_source(args)
+
+    feed = _selected_feed(args)  # (kind, value) or None
+    if args.platform == "tiktok":
+        return _tiktok_source(args, feed, cache_bytes)
+    return _youtube_source(args, feed, cache_bytes)
+
+
+def _selected_feed(args) -> tuple[str, str] | None:
+    if args.search is not None:
+        return "search", args.search
+    if args.user is not None:
+        return "user", args.user
+    if args.tag is not None:
+        return "tag", args.tag
+    if args.url is not None:
+        return "url", args.url
+    return None
 
 
 def _redact(argv: list[str]) -> list[str]:
@@ -109,48 +135,61 @@ def _redact(argv: list[str]) -> list[str]:
     return out
 
 
-def _tiktok_mode(args) -> tuple[str | None, str | None]:
-    if args.trending:
-        return "trending", None
-    if args.user:
-        return "user", args.user
-    if args.tag:
-        return "tag", args.tag.lstrip("#")
-    if args.related:
-        return "related", args.related
-    return None, None
-
-
 def _local_source(args) -> Source:
     source = LocalFolderSource(args.folder, limit=args.count)
     log.info("local mode: folder=%s found=%d videos", args.folder, source.count())
     if source.count() == 0:
         print(
             f"No videos found in {args.folder!r}.\n"
-            "Pass a folder, or stream a feed, e.g.:\n"
-            "  termtok --yt-search 'cats'        (YouTube Shorts, no setup)\n"
-            "  termtok --user <name>             (TikTok, needs ms_token)",
+            "Pass a folder of videos, or stream a feed, e.g.:\n"
+            "  termtok                     (trending YouTube Shorts)\n"
+            "  termtok --search cats       (YouTube Shorts search)\n"
+            "  termtok -p tiktok --tag cats   (TikTok, needs --ms-token)",
             file=sys.stderr,
         )
         raise SystemExit(1)
     return source
 
 
-def _youtube_source(args, cache_bytes: int) -> Source:
-    from .fetcher import YouTubeFetcher, channel_shorts_url, search_url
+def _youtube_source(args, feed: tuple[str, str] | None, cache_bytes: int) -> Source:
+    from .fetcher import (
+        YouTubeFetcher,
+        channel_shorts_url,
+        hashtag_url,
+        search_url,
+        trending_shorts_url,
+    )
 
-    if args.yt_channel:
-        url = channel_shorts_url(args.yt_channel)
-    elif args.yt_search:
-        url = search_url(args.yt_search)
+    if feed is None:
+        url = trending_shorts_url()
     else:
-        url = args.yt_url
+        kind, val = feed
+        url = {
+            "search": search_url,
+            "user": channel_shorts_url,
+            "tag": hashtag_url,
+            "url": lambda v: v,
+        }[kind](val)
     log.info("youtube source url=%s cache=%sMB dir=%s", url, args.cache_size, args.cache_dir)
     return StreamSource(YouTubeFetcher(url, args.cache_dir, cache_bytes))
 
 
-def _tiktok_source(args, mode: str, arg: str | None, cache_bytes: int) -> Source:
+def _tiktok_source(args, feed: tuple[str, str] | None, cache_bytes: int) -> Source:
     from .fetcher import TikTokFetcher
+
+    if feed is None:
+        mode, arg = "trending", None
+    else:
+        kind, val = feed
+        if kind == "search":
+            raise ValueError(
+                "TikTok video search isn't available — use --tag, --user, or --url"
+            )
+        mode, arg = {
+            "user": ("user", val),
+            "tag": ("tag", val.lstrip("#")),
+            "url": ("related", val),
+        }[kind]
 
     ms_token, origin = _resolve_ms_token(args.ms_token)
     log.info(
@@ -165,7 +204,7 @@ def _tiktok_source(args, mode: str, arg: str | None, cache_bytes: int) -> Source
         print(
             "warning: no ms_token (set --ms-token, $ms_token, or .env). "
             "TikTok requests will likely fail; harvest one from a logged-in "
-            "browser session, or use --yt-search for YouTube Shorts (no token).",
+            "browser session, or drop -p tiktok to use YouTube Shorts (no token).",
             file=sys.stderr,
         )
     return StreamSource(TikTokFetcher(mode, arg, args.cache_dir, cache_bytes, ms_token))

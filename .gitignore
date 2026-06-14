@@ -2,7 +2,7 @@
 .cache/
 .videos/
 .env
-__pycache__/
+/termtok/__pycache__/
 *.pyc
 *.swp
 termtok.log*

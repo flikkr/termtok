@@ -118,6 +118,11 @@ class ScrollPhysics:
         with self._lock:
             return self._vel == 0.0
 
+    @property
+    def speed(self) -> float:
+        with self._lock:
+            return abs(self._vel)
+
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return lo if x < lo else hi if x > hi else x

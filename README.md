@@ -2,11 +2,16 @@
 
 A TikTok-style vertical video feed, rendered in your terminal.
 
-Videos are decoded with OpenCV and drawn as truecolor half-block (`▀`) pixels.
-Scroll with your mouse wheel (or arrow keys) to move between videos — the feed
-uses momentum-and-snap physics so a flick carries you forward and eases cleanly
-into place, just like the real app. It plays from a local folder, or streams a
-live TikTok feed (downloading clips on demand into a bounded cache).
+Videos are decoded with OpenCV and drawn as truecolor half-block (`▀`) pixels,
+with the focused video's **audio** played via ffplay. Scroll with your mouse
+wheel (or arrow keys) to move between videos — the feed uses momentum-and-snap
+physics so a flick carries you forward and eases cleanly into place, just like
+the real app. It streams YouTube Shorts or a TikTok feed (downloading clips on
+demand into a bounded cache), or plays a local folder.
+
+Landing on a video restarts it from the top and plays its sound; scrolling away
+or pausing stops it. Audio needs `ffmpeg` (`brew install ffmpeg`); without it the
+video still plays, silently.
 
 ## Setup
 
@@ -14,42 +19,52 @@ live TikTok feed (downloading clips on demand into a bounded cache).
 uv venv .venv
 uv pip install --python .venv/bin/python -r requirements-player.txt   # player
 uv pip install --python .venv/bin/python TikTokApi python-dotenv yt-dlp curl_cffi  # streaming
-.venv/bin/python -m playwright install chromium                       # streaming
+.venv/bin/python -m playwright install chromium                       # streaming (TikTok)
+brew install ffmpeg                                                   # audio (ffplay)
 ```
 
 ## Run
 
-### Local folder (offline, default)
-
 ```bash
-./bin/termtok                 # plays everything in ./.videos
-./bin/termtok /path/to/clips  # play a different folder
-./bin/termtok -n 5            # cap how many videos to load
+./bin/termtok                 # default: stream trending YouTube Shorts (#shorts)
 ```
 
-### Stream YouTube Shorts (easiest — no token, no browser)
+### Local folder (offline)
 
-Needs `yt-dlp` (+ `curl_cffi`) and a **JavaScript runtime** so yt-dlp can solve
-YouTube's stream challenge — without it many videos fail as "This video is not
-available". Install one of deno/node (`brew install deno`). termtok passes
+```bash
+./bin/termtok /path/to/clips  # play a folder of videos
+./bin/termtok ./.videos -n 5  # cap how many videos to load
+```
+
+### Streaming
+
+One set of feed flags works for both platforms; pick the platform with
+`-p/--platform` (default `youtube`). With no feed flag you get that platform's
+default feed (YouTube `#shorts`, or the TikTok For-You feed).
+
+```bash
+./bin/termtok                       # default: trending YouTube Shorts
+./bin/termtok --search cats         # YouTube Shorts search
+./bin/termtok --user MrBeast        # a channel's Shorts
+./bin/termtok --tag funny           # a hashtag feed
+./bin/termtok --url https://www.youtube.com/@NASA/shorts
+./bin/termtok --search cats --cache-size 200   # cache up to 200 MB (default 50)
+
+./bin/termtok -p tiktok                         # TikTok For-You
+./bin/termtok -p tiktok --user davidteathercodes
+./bin/termtok -p tiktok --tag cats
+./bin/termtok -p tiktok --url https://www.tiktok.com/@user/video/123  # related
+```
+
+`--search` is YouTube-only (TikTok exposes no public video search).
+
+**YouTube** needs `yt-dlp` (+ `curl_cffi`) and a **JavaScript runtime** so yt-dlp
+can solve YouTube's stream challenge — without it many videos fail as "This video
+is not available". Install deno or node (`brew install deno`). termtok passes
 `--remote-components ejs:github`, so yt-dlp downloads the challenge solver once
-(cached) on the first run. No account, API key, or Playwright required.
+(cached) on first run. No account, API key, or Playwright required.
 
-```bash
-./bin/termtok --yt-search cats              # search Shorts
-./bin/termtok --yt-channel MrBeast          # a channel's Shorts
-./bin/termtok --yt-url https://www.youtube.com/@NASA/shorts
-./bin/termtok --yt-search cats --cache-size 200   # cache up to 200 MB (default 50)
-```
-
-### Stream from TikTok (needs ms_token + Playwright)
-
-```bash
-./bin/termtok --trending              # For-You feed
-./bin/termtok --user davidteathercodes
-./bin/termtok --tag cats
-./bin/termtok --related https://www.tiktok.com/@user/video/123
-```
+**TikTok** (`-p tiktok`) needs an `ms_token` + Playwright (see below).
 
 Videos stream in as you scroll: the next few are downloaded ahead of the
 playhead into `./.cache` (reused across runs), and an LRU eviction keeps the
@@ -104,7 +119,11 @@ each video queued/downloaded/evicted, and TikTok's raw responses — including t
 | Input                | Action            |
 | -------------------- | ----------------- |
 | Mouse wheel / ↑ ↓     | Scroll videos     |
-| `q` / `Ctrl-C`        | Quit              |
+| `Space`               | Play / pause      |
+| `m`                   | Mute / unmute     |
+| `q` / `Esc` / `Ctrl-C`| Quit              |
+
+Set the starting volume with `--volume 0-100` (default 70; `0` mutes).
 
 A true-color terminal gives the best results (yours reports `truecolor`).
 Larger terminal windows render more detail; smaller windows run faster.

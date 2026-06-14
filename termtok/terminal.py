@@ -7,6 +7,7 @@ tracking, plus a thread that parses wheel and key events from stdin.
 from __future__ import annotations
 
 import os
+import select
 import sys
 import termios
 import threading
@@ -55,21 +56,30 @@ class Terminal:
 
 
 class InputReader(threading.Thread):
-    """Parses stdin in the background, dispatching scroll and quit events.
+    """Parses stdin in the background, dispatching scroll/pause/quit events.
 
     ``on_scroll(direction)`` is called with +1 (next) or -1 (previous).
-    ``on_quit()`` is called when the user requests exit.
+    ``on_quit()`` is called to exit ('q', Ctrl-C, or a bare Escape).
+    ``on_toggle()`` is called to toggle play/pause (Space).
     """
+
+    # How long to wait after a lone ESC before deciding it's the Escape key
+    # rather than the start of an escape sequence (arrows / mouse).
+    _ESC_TIMEOUT = 0.15
 
     def __init__(
         self,
         on_scroll: Callable[[int], None],
         on_quit: Callable[[], None],
+        on_toggle: Callable[[], None] = lambda: None,
+        on_mute: Callable[[], None] = lambda: None,
     ) -> None:
         super().__init__(daemon=True)
         self._fd = sys.stdin.fileno()
         self._on_scroll = on_scroll
         self._on_quit = on_quit
+        self._on_toggle = on_toggle
+        self._on_mute = on_mute
         self._stop = threading.Event()
 
     def stop(self) -> None:
@@ -78,6 +88,15 @@ class InputReader(threading.Thread):
     def run(self) -> None:
         buf = b""
         while not self._stop.is_set():
+            # Wait for input, but wake periodically to honour stop() and to
+            # resolve a pending lone ESC into an Escape keypress.
+            timeout = self._ESC_TIMEOUT if buf == b"\x1b" else 0.2
+            r, _, _ = select.select([self._fd], [], [], timeout)
+            if not r:
+                if buf == b"\x1b":  # ESC with nothing following => Escape key
+                    self._on_quit()
+                    buf = b""
+                continue
             try:
                 data = os.read(self._fd, 1024)
             except (OSError, ValueError):
@@ -95,11 +114,19 @@ class InputReader(threading.Thread):
             if b in (ord("q"), 0x03):  # 'q' or Ctrl-C
                 self._on_quit()
                 return b""
+            if b == 0x20:  # Space — play/pause
+                self._on_toggle()
+                i += 1
+                continue
+            if b in (ord("m"), ord("M")):  # mute/unmute
+                self._on_mute()
+                i += 1
+                continue
             if b != 0x1b:  # not an escape sequence — ignore stray byte
                 i += 1
                 continue
 
-            # Need at least ESC + '['
+            # Lone trailing ESC: keep it; run()'s timeout decides Escape-vs-seq.
             if i + 1 >= n:
                 return buf[i:]
             if buf[i + 1] != ord("["):
