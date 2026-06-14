@@ -23,15 +23,16 @@ from .video import VideoReader
 # (videos/sec), so a fast fling doesn't stutter the soundtrack.
 _AUDIO_SETTLE_SPEED = 0.5
 
-_TARGET_FPS = 30.0
+_DEFAULT_FPS = 30.0
 # Keep decoders only for the previous, current and next video (playhead +/- 1).
 _READER_WINDOW = 1
 _LOADING_BG = (12, 12, 14)
 
 
 class Feed:
-    def __init__(self, source: Source, volume: int = 70) -> None:
+    def __init__(self, source: Source, volume: int = 70, fps: float = _DEFAULT_FPS) -> None:
         self.source = source
+        self._fps = max(1.0, fps)
         self.physics = ScrollPhysics(max(1, source.count()))
         self.renderer = Renderer()
         self.audio = AudioController(volume)
@@ -71,7 +72,7 @@ class Feed:
             except ValueError:
                 pass  # not on the main thread; Ctrl-C handled by input parser
 
-            frame_dt = 1.0 / _TARGET_FPS
+            frame_dt = 1.0 / self._fps
             last = time.monotonic()
             try:
                 while not self._quit:

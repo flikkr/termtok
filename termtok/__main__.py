@@ -50,6 +50,13 @@ def main(argv: list[str] | None = None) -> int:
         "-n", "--count", type=int, default=None, help="local mode: cap how many videos"
     )
     parser.add_argument(
+        "--fps",
+        type=float,
+        default=30.0,
+        metavar="FPS",
+        help="render frame rate (default: 30)",
+    )
+    parser.add_argument(
         "--volume",
         type=int,
         default=70,
@@ -95,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"termtok: {e}", file=sys.stderr)
         return 1
 
-    Feed(source, volume=args.volume).run()
+    Feed(source, volume=args.volume, fps=args.fps).run()
     return 0
 
 
