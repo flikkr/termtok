@@ -6,6 +6,8 @@
 *.pyc
 *.swp
 termtok.log*
+build/
+dist/
 
 # website dev
 website/node_modules/

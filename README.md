@@ -1,28 +1,28 @@
 # termtok
 
-[![Release](https://img.shields.io/github/v/release/flikkr/termtok)](https://github.com/flikkr/termtok/releases/latest)
-[![Build](https://img.shields.io/github/actions/workflow/status/flikkr/termtok/build.yml?label=build)](https://github.com/flikkr/termtok/actions/workflows/build.yml)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/flikkr/termtok)](https://github.com/flikkr/termtok/releases/latest) [![Build](https://img.shields.io/github/actions/workflow/status/flikkr/termtok/build.yml?label=build)](https://github.com/flikkr/termtok/actions/workflows/build.yml) [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A TikTok-style vertical video feed, rendered in your terminal.
+A TikTok-style vertical video feed, rendered in your terminal. Just because you can, doesn't mean you should... but I did.
 
-Videos are decoded with OpenCV and drawn as truecolor half-block (`▀`) pixels,
-with the focused video's **audio** played via ffplay. Scroll with your mouse
-wheel (or arrow keys) to move between videos — the feed uses momentum-and-snap
-physics so a flick carries you forward and eases cleanly into place, just like
-the real app. It streams YouTube Shorts or a TikTok feed (downloading clips on
-demand into a bounded cache), or plays a local folder.
+After coming across [this post on Reddit](https://www.reddit.com/r/SideProject/comments/1u2z50q/i_built_an_unblockable_video_stream_it_renders/), I did the thing that seemed like the next obvious evolution in this project. Armed with Claude my side, I prompted my way to a semi-functioning verion of `termtok`. It uses Youtube shorts at the content layer since TikTok has strong anti-scraping measures.
 
-Landing on a video restarts it from the top and plays its sound; scrolling away
-or pausing stops it. Audio needs `ffmpeg` (`brew install ffmpeg`); without it the
-video still plays, silently.
+Don't download this expecting anything polished, it's really just an excuse for me to burn through some credits for fun. Credit to the original author of [ASCILINE](https://github.com/YusufB5/ASCILINE) for the cool project!
 
-## Setup
+## Installation
+
+To install `termtok` (macOS/Linux):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/flikkr/termtok/main/install.sh | sh
+```
+
+## Local Development Setup
+
+To run from source and modify the code:
 
 ```bash
 uv venv .venv
-uv pip install --python .venv/bin/python -r requirements-player.txt   # player
+uv pip install --python .venv/bin/python -r requirements.txt   # player
 uv pip install --python .venv/bin/python TikTokApi python-dotenv yt-dlp curl_cffi  # streaming
 .venv/bin/python -m playwright install chromium                       # streaming (TikTok)
 brew install ffmpeg                                                   # audio (ffplay)
@@ -30,35 +30,34 @@ brew install ffmpeg                                                   # audio (f
 
 ## Run
 
-```bash
-./bin/termtok                 # default: stream trending YouTube Shorts (#shorts)
-```
-
-### Local folder (offline)
+Run the command from wherever it is located (e.g. just `termtok` if installed, or `./bin/termtok` if running from source):
 
 ```bash
-./bin/termtok /path/to/clips  # play a folder of videos
-./bin/termtok ./.videos -n 5  # cap how many videos to load
+termtok                 # default: stream YouTube Shorts
 ```
 
 ### Streaming
+
+Landing on a video restarts it from the top and plays its sound; scrolling away
+or pausing stops it. Audio needs `ffmpeg` (`brew install ffmpeg`); without it the
+video still plays, silently.
 
 One set of feed flags works for both platforms; pick the platform with
 `-p/--platform` (default `youtube`). With no feed flag you get that platform's
 default feed (YouTube `#shorts`, or the TikTok For-You feed).
 
 ```bash
-./bin/termtok                       # default: trending YouTube Shorts
-./bin/termtok --search cats         # YouTube Shorts search
-./bin/termtok --user MrBeast        # a channel's Shorts
-./bin/termtok --tag funny           # a hashtag feed
-./bin/termtok --url https://www.youtube.com/@NASA/shorts
-./bin/termtok --search cats --cache-size 200   # cache up to 200 MB (default 50)
+termtok                       # default: trending YouTube Shorts
+termtok --search cats         # YouTube Shorts search
+termtok --user MrBeast        # a channel's Shorts
+termtok --tag funny           # a hashtag feed
+termtok --url https://www.youtube.com/@NASA/shorts
+termtok --search cats --cache-size 200   # cache up to 200 MB (default 50)
 
-./bin/termtok -p tiktok                         # TikTok For-You
-./bin/termtok -p tiktok --user davidteathercodes
-./bin/termtok -p tiktok --tag cats
-./bin/termtok -p tiktok --url https://www.tiktok.com/@user/video/123  # related
+termtok -p tiktok                         # TikTok For-You
+termtok -p tiktok --user davidteathercodes
+termtok -p tiktok --tag cats
+termtok -p tiktok --url https://www.tiktok.com/@user/video/123  # related
 ```
 
 `--search` is YouTube-only (TikTok exposes no public video search).
@@ -110,7 +109,7 @@ The TUI can't print to the screen, so logs go to a file (`./termtok.log` by
 default, rotating). Use `--debug` for verbose output:
 
 ```bash
-./bin/termtok --tag cats --debug
+termtok --tag cats --debug
 tail -f termtok.log          # watch in another terminal while it runs
 ```
 

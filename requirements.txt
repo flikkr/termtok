@@ -1,3 +1,8 @@
+# Player (required)
+numpy
+opencv-python-headless
+
+# Streaming (optional — YouTube/TikTok)
 annotated-types==0.7.0
 anyio==4.13.0
 apify==3.1.0
