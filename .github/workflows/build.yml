@@ -34,7 +34,7 @@ jobs:
           pip install numpy opencv-python-headless pyinstaller
 
       - name: Stamp version from tag
-        run: sed -i "s/__version__ = \".*\"/__version__ = \"${{ github.ref_name }}\"/" termtok/__init__.py
+        run: sed -i.bak "s/__version__ = \".*\"/__version__ = \"${{ github.ref_name }}\"/" termtok/__init__.py && rm termtok/__init__.py.bak
 
       - name: Build binary
         run: |
