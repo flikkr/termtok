@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 
+from . import __version__
 from .feed import Feed
 from .log import setup_logging
 from .source import LocalFolderSource, Source, StreamSource
@@ -22,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="termtok",
         description="A TikTok-style vertical video feed in your terminal.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "folder",
         nargs="?",
