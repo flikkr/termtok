@@ -24,6 +24,7 @@ import re
 import subprocess
 import threading
 import urllib.parse
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 
 from . import tools
@@ -45,9 +46,15 @@ class _Desc:
 
 class BaseFetcher:
     # Keep this many descriptors fetched ahead of the playhead.
-    LOOKAHEAD_META = 8
-    # Download this many videos beyond the playhead.
-    PREFETCH_AHEAD = 4
+    LOOKAHEAD_META = 24
+    # Keep this many videos *downloaded* ahead of the playhead. Files are small
+    # (480p, <1MB) so a deep buffer is cheap and absorbs yt-dlp's per-call
+    # startup latency — the next several videos are already on disk when you scroll.
+    PREFETCH_AHEAD = 10
+    # How many videos to download at once. Decoupled from the buffer depth: the
+    # cost per video is yt-dlp startup + YouTube's JS solver, not bytes, so a few
+    # concurrent calls amortise that without spawning a subprocess per buffered video.
+    MAX_DOWNLOADS = 4
     # Videos within +/- this of the playhead are never evicted.
     PROTECT = 2
     # Give up on a video after this many failed download attempts.
@@ -55,7 +62,10 @@ class BaseFetcher:
     # Anything smaller than this is a bogus/partial download, not a video.
     MIN_VALID_BYTES = 50_000
     # yt-dlp format: a single progressive mp4 (no merge => no ffmpeg needed).
-    YTDLP_FORMAT = "b[ext=mp4]/best[ext=mp4]/best"
+    # Cap height first: we downscale to a terminal grid, so a 360p progressive
+    # stream (~few MB) is plenty — grabbing "best" pulls 50-700MB files that take
+    # tens of seconds each and kill the scroll feel. Falls back if none capped.
+    YTDLP_FORMAT = "b[ext=mp4][height<=480]/b[ext=mp4]/best[ext=mp4]/best"
     DOWNLOAD_TIMEOUT = 120  # seconds per video
 
     def __init__(self, cache_dir: str, cache_bytes: int) -> None:
@@ -74,6 +84,12 @@ class BaseFetcher:
         self._thread = threading.Thread(
             target=self._main, name="termtok-fetcher", daemon=True
         )
+        # Download the prefetch window concurrently so a fast scroll doesn't
+        # outrun a one-at-a-time queue.
+        self._pool = ThreadPoolExecutor(
+            max_workers=self.MAX_DOWNLOADS, thread_name_prefix="termtok-dl"
+        )
+        self._inflight: dict[int, Future] = {}
         os.makedirs(cache_dir, exist_ok=True)
 
     # -- public, called from the player thread -----------------------------
@@ -83,6 +99,7 @@ class BaseFetcher:
 
     def stop(self) -> None:
         self._stop.set()
+        self._pool.shutdown(wait=False, cancel_futures=True)
 
     def count(self) -> int:
         with self._lock:
@@ -159,6 +176,14 @@ class BaseFetcher:
                 and self._attempts.get(i, 0) < self.MAX_ATTEMPTS
             ]
 
+    def _pump_downloads(self) -> None:
+        """Submit pending prefetch targets to the pool and reap finished ones."""
+        for i in [i for i, f in self._inflight.items() if f.done()]:
+            self._inflight.pop(i)
+        for i in self._download_targets():
+            if i not in self._inflight and not self._stop.is_set():
+                self._inflight[i] = self._pool.submit(self._download_sync, i)
+
     def _download_sync(self, i: int) -> None:
         """Ensure video ``i`` is in the cache (runs on a worker thread)."""
         with self._lock:
@@ -186,6 +211,8 @@ class BaseFetcher:
         log.debug("downloading #%d id=%s @%s via yt-dlp: %s", i, d.id, d.author, d.url)
         rc, err = self._ytdlp(d.url, path)
 
+        if self._stop.is_set():
+            return  # Ctrl-C killed the subprocess mid-flight; not a real failure
         if rc != 0 or not os.path.exists(path):
             log.warning(
                 "download failed #%d id=%s (attempt %d, rc=%s): %s",
@@ -341,10 +368,7 @@ class TikTokFetcher(BaseFetcher):
             gen = self._feed(api)
             while not self._stop.is_set():
                 await self._ensure_meta(gen)
-                for i in self._download_targets():
-                    if self._stop.is_set():
-                        break
-                    await asyncio.to_thread(self._download_sync, i)
+                self._pump_downloads()
                 await asyncio.sleep(0.08)
 
     def _feed(self, api):
@@ -440,10 +464,7 @@ class YouTubeFetcher(BaseFetcher):
             self._status = None
         while not self._stop.is_set():
             self._ensure_meta()
-            for i in self._download_targets():
-                if self._stop.is_set():
-                    break
-                self._download_sync(i)
+            self._pump_downloads()
             self._stop.wait(0.1)
 
     def _ensure_meta(self) -> None:
@@ -503,6 +524,8 @@ class YouTubeFetcher(BaseFetcher):
         except Exception as e:  # noqa: BLE001
             log.warning("youtube enumerate failed (%s..%s): %s", start, end, e)
             return [], 0
+        if self._stop.is_set():
+            return [], 0  # shutting down; ignore a killed subprocess
         if proc.returncode != 0:
             log.warning(
                 "yt-dlp enumerate rc=%s: %s", proc.returncode, proc.stderr.strip()[-200:]

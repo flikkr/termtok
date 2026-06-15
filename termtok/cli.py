@@ -97,7 +97,6 @@ def main(argv: list[str] | None = None) -> int:
         print("termtok must run in an interactive terminal.", file=sys.stderr)
         return 1
 
-    print(f"termtok: logging to {log_path}", file=sys.stderr)
     try:
         source = _build_source(args)
     except SystemExit:

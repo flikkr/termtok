@@ -140,7 +140,7 @@ class InputReader(threading.Thread):
                     end += 1
                 if end >= n:
                     return buf[i:]  # incomplete; wait for more
-                self._handle_mouse(buf[i + 3 : end])
+                self._handle_mouse(buf[i + 3 : end], buf[end])
                 i = end + 1
                 continue
 
@@ -161,7 +161,7 @@ class InputReader(threading.Thread):
             return buf[i:]
         return b""
 
-    def _handle_mouse(self, params: bytes) -> None:
+    def _handle_mouse(self, params: bytes, term: int) -> None:
         try:
             cb = int(params.split(b";", 1)[0])
         except ValueError:
@@ -171,3 +171,6 @@ class InputReader(threading.Thread):
             self._on_scroll(-1)
         elif cb == 65:
             self._on_scroll(1)
+        # Left-button press (cb 0, 'M' = press not release) toggles play/pause.
+        elif cb == 0 and term == ord("M"):
+            self._on_toggle()
