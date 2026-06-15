@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import os
-from logging.handlers import RotatingFileHandler
 
 _PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_LOG_PATH = os.path.join(_PROJECT_DIR, "termtok.log")
@@ -31,9 +30,7 @@ def setup_logging(debug: bool = False, path: str | None = None) -> str:
     for h in list(root.handlers):
         root.removeHandler(h)
 
-    handler = RotatingFileHandler(
-        path, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
-    )
+    handler = logging.FileHandler(path, mode="w", encoding="utf-8")
     handler.setFormatter(logging.Formatter(_FORMAT))
     root.addHandler(handler)
 

@@ -22,15 +22,22 @@ To run from source and modify the code:
 
 ```bash
 uv venv .venv
-uv pip install --python .venv/bin/python -r requirements.txt   # player
-uv pip install --python .venv/bin/python TikTokApi python-dotenv yt-dlp curl_cffi  # streaming
-.venv/bin/python -m playwright install chromium                       # streaming (TikTok)
-brew install ffmpeg                                                   # audio (ffplay)
+source .venv/bin/activate
+uv pip install -r requirements.txt                    # player
+uv pip install TikTokApi python-dotenv yt-dlp curl_cffi  # streaming
+python -m playwright install chromium                 # streaming (TikTok)
+brew install ffmpeg                                   # audio (ffplay)
 ```
 
 ## Run
 
-Run the command from wherever it is located (e.g. just `termtok` if installed, or `./bin/termtok` if running from source):
+After activating the venv (`source .venv/bin/activate`), run:
+
+```bash
+python -m termtok       # default: stream YouTube Shorts
+```
+
+Or if using the installed binary:
 
 ```bash
 termtok                 # default: stream YouTube Shorts

@@ -533,11 +533,6 @@ class YouTubeFetcher(BaseFetcher):
         return out, n_raw
 
 
-def trending_shorts_url() -> str:
-    """The default feed: the #shorts hashtag page (a stream of popular Shorts)."""
-    return "https://www.youtube.com/hashtag/shorts"
-
-
 def channel_shorts_url(name: str) -> str:
     return f"https://www.youtube.com/@{name.lstrip('@')}/shorts"
 
