@@ -90,6 +90,8 @@ class BaseFetcher:
             max_workers=self.MAX_DOWNLOADS, thread_name_prefix="termtok-dl"
         )
         self._inflight: dict[int, Future] = {}
+        self._procs: set[subprocess.Popen] = set()
+        self._procs_lock = threading.Lock()
         os.makedirs(cache_dir, exist_ok=True)
 
     # -- public, called from the player thread -----------------------------
@@ -99,6 +101,12 @@ class BaseFetcher:
 
     def stop(self) -> None:
         self._stop.set()
+        with self._procs_lock:
+            for p in self._procs:
+                try:
+                    p.terminate()
+                except OSError:
+                    pass
         self._pool.shutdown(wait=False, cancel_futures=True)
 
     def count(self) -> int:
@@ -261,16 +269,24 @@ class BaseFetcher:
             url,
         ]
         try:
-            proc = subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.DOWNLOAD_TIMEOUT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 env=tools.subprocess_env(),
             )
-            return proc.returncode, proc.stderr
-        except subprocess.TimeoutExpired:
-            return 1, "yt-dlp timed out"
+            with self._procs_lock:
+                self._procs.add(proc)
+            try:
+                _, stderr = proc.communicate(timeout=self.DOWNLOAD_TIMEOUT)
+                return proc.returncode, stderr.decode(errors="replace")
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                return 1, "yt-dlp timed out"
+            finally:
+                with self._procs_lock:
+                    self._procs.discard(proc)
         except Exception as e:  # noqa: BLE001
             return 1, str(e)
 
@@ -514,27 +530,40 @@ class YouTubeFetcher(BaseFetcher):
             self.source_url,
         ]
         try:
-            proc = subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
-                capture_output=True,
-                text=True,
-                timeout=60,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 env=tools.subprocess_env(),
             )
+            with self._procs_lock:
+                self._procs.add(proc)
+            try:
+                stdout_b, stderr_b = proc.communicate(timeout=60)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                log.warning("youtube enumerate timed out (%s..%s)", start, end)
+                return [], 0
+            finally:
+                with self._procs_lock:
+                    self._procs.discard(proc)
         except Exception as e:  # noqa: BLE001
             log.warning("youtube enumerate failed (%s..%s): %s", start, end, e)
             return [], 0
         if self._stop.is_set():
             return [], 0  # shutting down; ignore a killed subprocess
+        stdout = stdout_b.decode(errors="replace")
+        stderr_s = stderr_b.decode(errors="replace")
         if proc.returncode != 0:
             log.warning(
-                "yt-dlp enumerate rc=%s: %s", proc.returncode, proc.stderr.strip()[-200:]
+                "yt-dlp enumerate rc=%s: %s", proc.returncode, stderr_s.strip()[-200:]
             )
             return [], 0
 
         out: list[_Desc] = []
         n_raw = 0
-        for line in proc.stdout.splitlines():
+        for line in stdout.splitlines():
             if not line.strip():
                 continue
             n_raw += 1
