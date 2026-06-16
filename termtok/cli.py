@@ -170,7 +170,7 @@ def _youtube_source(args, feed: tuple[str, str] | None, cache_bytes: int) -> Sou
     )
 
     if feed is None:
-        url = search_url("cats")
+        url = search_url("engineering")
     else:
         kind, val = feed
         url = {
