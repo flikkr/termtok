@@ -62,16 +62,19 @@ if [ -z "$URL" ]; then
   exit 1
 fi
 
-# Download termtok itself
-TMP="$(mktemp)"
-echo "termtok: downloading $ARTIFACT..."
-curl -fsSL "$URL" -o "$TMP"
-chmod +x "$TMP"
+# Install dir for the onedir bundle (exe + _internal/)
+APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/termtok/app"
 
-# Install
+# Download and extract
+echo "termtok: downloading $ARTIFACT..."
+mkdir -p "$APP_DIR"
+curl -fsSL "$URL" | tar -xz -C "$APP_DIR" --strip-components=1
+
+# Symlink the exe into BIN_DIR
 mkdir -p "$BIN_DIR"
-mv "$TMP" "$BIN_DIR/termtok"
+ln -sf "$APP_DIR/termtok" "$BIN_DIR/termtok"
 echo "termtok: installed to $BIN_DIR/termtok"
+echo "termtok: NOTE — first launch may take up to a minute while macOS verifies the app. Subsequent launches are fast."
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
