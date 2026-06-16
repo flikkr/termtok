@@ -1,5 +1,13 @@
 # termtok
 
+```text
+    __                      __        __  
+   / /____  _________ ___  / /_____  / /__
+  / __/ _ \/ ___/ __ `__ \/ __/ __ \/ //_/
+ / /_/  __/ /  / / / / / / /_/ /_/ / ,<   
+ \__/\___/_/  /_/ /_/ /_/\__/\____/_/|_|  
+```
+
 [![Release](https://img.shields.io/github/v/release/flikkr/termtok)](https://github.com/flikkr/termtok/releases/latest) [![Build](https://img.shields.io/github/actions/workflow/status/flikkr/termtok/build.yml?label=build)](https://github.com/flikkr/termtok/actions/workflows/build.yml) [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A TikTok-style vertical video feed, rendered in your terminal. Just because you can, doesn't mean you should... but I did.
