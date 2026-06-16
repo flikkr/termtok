@@ -38,12 +38,12 @@ def main(argv: list[str] | None = None) -> int:
         "--platform",
         choices=["youtube", "tiktok"],
         default="youtube",
-        help="streaming platform (default: youtube). tiktok needs --ms-token.",
+        help=argparse.SUPPRESS,
     )
     feed = parser.add_mutually_exclusive_group()
     feed.add_argument("--search", metavar="QUERY", help="search for videos (YouTube)")
     feed.add_argument("--user", metavar="NAME", help="a creator's / channel's videos")
-    feed.add_argument("--tag", metavar="TAG", help="a hashtag's videos")
+    feed.add_argument("--tag", metavar="TAG", help=argparse.SUPPRESS)
     feed.add_argument(
         "--url",
         metavar="URL",
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--ms-token",
         default=None,
-        help="TikTok ms_token (else $ms_token, else .env)",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--debug", action="store_true", help="verbose logging to the log file"
@@ -154,7 +154,7 @@ def _local_source(args) -> Source:
             "Pass a folder of videos, or stream a feed, e.g.:\n"
             "  termtok                     (trending YouTube Shorts)\n"
             "  termtok --search cats       (YouTube Shorts search)\n"
-            "  termtok -p tiktok --tag cats   (TikTok, needs --ms-token)",
+            "  termtok --user mkbhd        (a channel's Shorts)",
             file=sys.stderr,
         )
         raise SystemExit(1)
