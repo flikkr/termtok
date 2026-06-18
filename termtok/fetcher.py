@@ -594,7 +594,7 @@ def hashtag_url(tag: str) -> str:
 
 
 def search_url(query: str) -> str:
-    q = urllib.parse.quote(f"{query} #shorts")
+    q = urllib.parse.quote(f"{query}")
     return f"https://www.youtube.com/results?search_query={q}"
 
 
